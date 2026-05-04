@@ -6,15 +6,15 @@
   </component>
   <component name="DBNavigator.Project.DataEditorManager">
     <record-view-column-sorting-type value="BY_INDEX" />
-    <value-preview-text-wrapping value="true" />
+    <value-preview-text-wrapping value="false" />
     <value-preview-pinned value="false" />
   </component>
   <component name="DBNavigator.Project.DatabaseAssistantManager">
     <assistants>
-      <assistant-state connection-id="2e1b1466-fa7e-4409-953c-5bb323ecd3f4" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="" availability="AVAILABLE" acknowledgement="NONE" selected="true">
+      <assistant-state connection-id="2e1b1466-fa7e-4409-953c-5bb323ecd3f4" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
         <tools />
       </assistant-state>
-      <assistant-state connection-id="2e1b1466-fa7e-4409-953c-5bb323ecd3f4" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
+      <assistant-state connection-id="2e1b1466-fa7e-4409-953c-5bb323ecd3f4" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="" availability="AVAILABLE" acknowledgement="NONE" selected="true">
         <tools />
       </assistant-state>
     </assistants>
@@ -57,7 +57,7 @@
           <description value="" />
           <database-type value="MYSQL" />
           <config-type value="BASIC" />
-          <database-version value="9999.0" />
+          <database-version value="8.0" />
           <driver-source value="BUNDLED" />
           <driver-library value="" />
           <driver value="" />
@@ -81,7 +81,7 @@
           <azure-token-tenant-id value="" />
           <azure-token-client-id value="" />
           <azure-token-client-certificate-file value="" />
-          <session-user value="" />
+          <session-user value="root@localhost" />
         </database>
         <properties>
           <auto-commit value="false" />
@@ -605,5 +605,9 @@
         </visibility-settings>
       </environment>
     </general-settings>
+  </component>
+  <component name="DBNavigator.Project.StatementExecutionManager">
+    <execution-variables />
+    <execution-variable-types />
   </component>
 </project>
