@@ -22,7 +22,7 @@ public class Url {
     @Column(unique = true)
     private String shortUrl;
     private String longUrl;
-    @CreatedDate
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
     private long clickCount = 0;
 }

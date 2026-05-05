@@ -12,9 +12,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UrlDto {
-    private long id;
+    private Long id;
     private String shortUrl;
     private String longUrl;
     private LocalDateTime createdAt;
-    private long clickCount;
+    private Long clickCount;
 }

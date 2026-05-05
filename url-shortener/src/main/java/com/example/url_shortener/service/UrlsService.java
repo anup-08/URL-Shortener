@@ -90,6 +90,7 @@ public class UrlsService {
 
     private UrlDto mapToDto(Url url){
         return UrlDto.builder()
+                .id(url.getId())
                 .shortUrl(url.getShortUrl())
                 .longUrl(url.getLongUrl())
                 .createdAt(url.getCreatedAt())
