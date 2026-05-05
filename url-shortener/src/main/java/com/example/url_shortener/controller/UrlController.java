@@ -1,7 +1,9 @@
 package com.example.url_shortener.controller;
 
 import com.example.url_shortener.dtos.UrlDto;
+import com.example.url_shortener.service.RateLimitService;
 import com.example.url_shortener.service.UrlsService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import java.net.URI;
 @AllArgsConstructor
 public class UrlController {
     private final UrlsService urlsService;
+    private final RateLimitService rateLimitService;
 
     @PostMapping("/shorten")
     public ResponseEntity<String> shortenUrl(@RequestBody String longUrl) {
@@ -28,7 +31,10 @@ public class UrlController {
     }
 
     @GetMapping("/{shortUrl}")
-    public ResponseEntity<Void> getOriginalUrl(@PathVariable String shortUrl) {
+    public ResponseEntity<Void> getOriginalUrl(@PathVariable String shortUrl , HttpServletRequest request) {
+
+        String ip = request.getRemoteUser();
+        rateLimitService.validateRequest(ip + ":" + shortUrl);
 
         String originalUrl = urlsService.getOriginalUrl(shortUrl);
 

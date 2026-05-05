@@ -15,3 +15,7 @@ spring:
     redis:
       host: ${redis_host}
       port: ${redis_port}
+
+rate-limit:
+  requests: 10
+  duration: 30
