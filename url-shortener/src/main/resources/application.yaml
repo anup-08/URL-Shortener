@@ -3,9 +3,9 @@ spring:
     name: url-shortener
 
   datasource:
-    url: db_url
-    username: db_user
-    password: db_password
+    url: ${db_url}
+    username: ${db_user}
+    password: ${db_password}
 
   jpa:
     hibernate:

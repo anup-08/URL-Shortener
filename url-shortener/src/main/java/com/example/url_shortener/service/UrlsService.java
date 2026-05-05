@@ -5,12 +5,14 @@ import com.example.url_shortener.model.Url;
 import com.example.url_shortener.repository.UrlsRepo;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @AllArgsConstructor
 public class UrlsService {
     private final UrlsRepo urlsRepo;
 
+    @Transactional
     public String createUrl(String longUrl) {
         Url url = Url.builder()
                 .longUrl(longUrl)
@@ -46,7 +48,15 @@ public class UrlsService {
     }
 
     public String createCustomUrl(String longUrl, String customAlias) {
-        return null;
+        if (urlsRepo.existsByShortUrl(customAlias)) {
+            throw new RuntimeException("Custom alias already exists");
+        }
+        Url url = Url.builder()
+                .longUrl(longUrl)
+                .shortUrl(customAlias)
+                .build();
+        urlsRepo.save(url);
+        return customAlias;
     }
 
     private UrlDto mapToDto(Url url){

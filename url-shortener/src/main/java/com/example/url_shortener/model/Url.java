@@ -23,5 +23,5 @@ public class Url {
     private String longUrl;
     @CreatedDate
     private LocalDateTime createdAt;
-    private long clickCount;
+    private long clickCount = 0;
 }
