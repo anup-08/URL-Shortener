@@ -13,4 +13,6 @@ public interface UrlsRepo extends JpaRepository<Url,Long> {
     int deleteByShortUrl(String shortUrl);
 
     boolean existsByShortUrl(String customAlias);
+
+    Optional<Url> findByLongUrl(String longUrl);
 }
