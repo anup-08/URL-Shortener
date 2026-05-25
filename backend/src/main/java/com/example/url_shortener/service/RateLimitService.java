@@ -1,6 +1,7 @@
 package com.example.url_shortener.service;
 
 import com.example.url_shortener.config.RateLimitingConfiguration;
+import com.example.url_shortener.exception.TooManyRequestsException;
 import lombok.AllArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,7 @@ public class RateLimitService {
         }
 
         if (count != null && count > rateLimitingConfiguration.getRequests()) {
-            throw new RuntimeException("Too many requests. Try again later.");
+            throw new TooManyRequestsException("Too many requests. Please try again later.");
         }
 
     }

@@ -67,27 +67,32 @@ public class UrlsService {
     }
 
     public long getClickCount(String shortUrl) {
-        Url url = getUrlOrThrow(shortUrl);
-        return url.getClickCount();
+        return getLiveClickCount(shortUrl);
     }
 
+    @Transactional
     public void deleteUrl(String shortUrl) {
         int delete = urlsRepo.deleteByShortUrl(shortUrl);
-        redisTemplate.delete("url:" + shortUrl);
-        redisTemplate.delete("status:" + shortUrl);
-        redisTemplate.delete("click:" + shortUrl);
         if (delete == 0) {
             throw new UrlNotFound("URL not found");
         }
+
+        redisTemplate.delete("url:" + shortUrl);
+        redisTemplate.delete("status:" + shortUrl);
+        redisTemplate.delete("click:" + shortUrl);
     }
 
     public UrlDto getStatus(String shortUrl) {
         String cache = redisTemplate.opsForValue().get("status:" + shortUrl);
 
-        if (cache != null) return deserialize(cache);
+        if (cache != null) {
+            UrlDto cached = deserialize(cache);
+            cached.setClickCount(getLiveClickCount(shortUrl));
+            return cached;
+        }
 
         Url url = getUrlOrThrow(shortUrl);
-        UrlDto dto = mapToDto(url);
+        UrlDto dto = mapToDto(url, getLiveClickCount(shortUrl));
 
         redisTemplate.opsForValue().set("status:" + shortUrl , serialize(dto) , Duration.ofMinutes(10));
         return dto;
@@ -137,14 +142,29 @@ public class UrlsService {
         return customAlias.trim();
     }
 
-    private UrlDto mapToDto(Url url){
+    private UrlDto mapToDto(Url url, long clickCount){
         return UrlDto.builder()
                 .id(url.getId())
                 .shortUrl(url.getShortUrl())
                 .longUrl(url.getLongUrl())
                 .createdAt(url.getCreatedAt())
-                .clickCount(url.getClickCount())
+                .clickCount(clickCount)
                 .build();
+    }
+
+    private long getLiveClickCount(String shortUrl) {
+        Url url = getUrlOrThrow(shortUrl);
+        String pendingClicks = redisTemplate.opsForValue().get("click:" + shortUrl);
+
+        if (pendingClicks == null || pendingClicks.isBlank()) {
+            return url.getClickCount();
+        }
+
+        try {
+            return url.getClickCount() + Long.parseLong(pendingClicks);
+        } catch (NumberFormatException ex) {
+            return url.getClickCount();
+        }
     }
 
     private Url getUrlOrThrow(String shortUrl) {

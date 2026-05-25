@@ -11,12 +11,16 @@ import {
   Wand2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { buildShortLink, createCustomUrl, deleteUrl, getClickCount, getUrlStatus, shortenUrl } from './api/urlService';
+import { buildShortLink, createCustomUrl, deleteUrl, getUrlStatus, shortenUrl } from './api/urlService';
 
 const defaultForm = {
   longUrl: '',
   customAlias: '',
 };
+
+const storageKey = 'pulse-link-session';
+const maxRecentLinks = 6;
+const pollIntervalMs = 8000;
 
 function normalizeUrl(value) {
   const trimmed = value.trim();
@@ -32,30 +36,186 @@ function isValidAlias(value) {
   return /^[A-Za-z0-9_-]+$/.test(value.trim());
 }
 
+function isSameRecord(current, next) {
+  return (
+    current.shortUrl === next.shortUrl &&
+    current.longUrl === next.longUrl &&
+    current.createdAt === next.createdAt &&
+    current.clickCount === next.clickCount
+  );
+}
+
+function readSessionState() {
+  if (typeof window === 'undefined') {
+    return {
+      form: defaultForm,
+      recentLinks: [],
+      activeResult: null,
+      statusLookup: null,
+      lookupCode: '',
+    };
+  }
+
+  const saved = window.sessionStorage.getItem(storageKey);
+  if (!saved) {
+    return {
+      form: defaultForm,
+      recentLinks: [],
+      activeResult: null,
+      statusLookup: null,
+      lookupCode: '',
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    return {
+      form: parsed.form && typeof parsed.form === 'object' ? {
+        longUrl: typeof parsed.form.longUrl === 'string' ? parsed.form.longUrl : '',
+        customAlias: typeof parsed.form.customAlias === 'string' ? parsed.form.customAlias : '',
+      } : defaultForm,
+      recentLinks: Array.isArray(parsed.recentLinks) ? parsed.recentLinks : [],
+      activeResult: parsed.activeResult ?? null,
+      statusLookup: parsed.statusLookup ?? null,
+      lookupCode: typeof parsed.lookupCode === 'string' ? parsed.lookupCode : '',
+    };
+  } catch {
+    window.sessionStorage.removeItem(storageKey);
+    return {
+      form: defaultForm,
+      recentLinks: [],
+      activeResult: null,
+      statusLookup: null,
+      lookupCode: '',
+    };
+  }
+}
+
 export function App() {
-  const [form, setForm] = useState(defaultForm);
+  const [persistedState] = useState(() => readSessionState());
+  const [form, setForm] = useState(persistedState.form);
   const [submitting, setSubmitting] = useState(false);
-  const [lookupCode, setLookupCode] = useState('');
+  const [lookupCode, setLookupCode] = useState(persistedState.lookupCode);
   const [lookupLoading, setLookupLoading] = useState(false);
-  const [recentLinks, setRecentLinks] = useState([]);
-  const [activeResult, setActiveResult] = useState(null);
-  const [statusLookup, setStatusLookup] = useState(null);
+  const [recentLinks, setRecentLinks] = useState(persistedState.recentLinks);
+  const [activeResult, setActiveResult] = useState(persistedState.activeResult);
+  const [statusLookup, setStatusLookup] = useState(persistedState.statusLookup);
   const currentStatus = statusLookup?.status;
 
   useEffect(() => {
-    const saved = window.localStorage.getItem('pulse-link-history');
-    if (saved) {
-      try {
-        setRecentLinks(JSON.parse(saved));
-      } catch {
-        window.localStorage.removeItem('pulse-link-history');
-      }
-    }
-  }, []);
+    window.sessionStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        form,
+        recentLinks,
+        activeResult,
+        statusLookup,
+        lookupCode,
+      }),
+    );
+  }, [activeResult, lookupCode, recentLinks, statusLookup]);
 
   useEffect(() => {
-    window.localStorage.setItem('pulse-link-history', JSON.stringify(recentLinks));
-  }, [recentLinks]);
+    if (recentLinks.length === 0 && !statusLookup?.shortUrl) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const syncTrackedLinks = async () => {
+      const trackedShortUrls = [...new Set([
+        ...recentLinks.map((item) => item.shortUrl),
+        statusLookup?.shortUrl,
+      ].filter(Boolean))];
+
+      if (trackedShortUrls.length === 0) {
+        return;
+      }
+
+      const results = await Promise.all(
+        trackedShortUrls.map(async (shortUrl) => {
+          try {
+            const record = await getUrlStatus(shortUrl, { skipGlobalToast: true });
+            return [shortUrl, record];
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      const updates = new Map(results.filter(Boolean));
+      if (updates.size === 0) {
+        return;
+      }
+
+      setRecentLinks((current) => {
+        let hasChanges = false;
+        const nextLinks = current.map((item) => {
+          const refreshed = updates.get(item.shortUrl);
+          if (!refreshed) {
+            return item;
+          }
+
+          const nextRecord = { ...item, ...refreshed };
+          if (isSameRecord(item, nextRecord)) {
+            return item;
+          }
+
+          hasChanges = true;
+          return nextRecord;
+        });
+
+        return hasChanges ? nextLinks : current;
+      });
+
+      setActiveResult((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const refreshed = updates.get(current.shortUrl);
+        if (!refreshed) {
+          return current;
+        }
+
+        const nextRecord = { ...current, ...refreshed };
+        return isSameRecord(current, nextRecord) ? current : nextRecord;
+      });
+
+      setStatusLookup((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const refreshed = updates.get(current.shortUrl);
+        if (!refreshed) {
+          return current;
+        }
+
+        if (current.status && isSameRecord(current.status, refreshed) && current.clickCount === refreshed.clickCount) {
+          return current;
+        }
+
+        return {
+          ...current,
+          status: refreshed,
+          clickCount: refreshed.clickCount,
+        };
+      });
+    };
+
+    syncTrackedLinks();
+    const interval = window.setInterval(syncTrackedLinks, pollIntervalMs);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [recentLinks, statusLookup?.shortUrl]);
 
   const metrics = useMemo(() => {
     const totalClicks = recentLinks.reduce((total, item) => total + item.clickCount, 0);
@@ -67,21 +227,18 @@ export function App() {
   }, [recentLinks, statusLookup]);
 
   const persistLink = (record) => {
-    setRecentLinks((current) => [record, ...current.filter((item) => item.shortUrl !== record.shortUrl)].slice(0, 6));
+    setRecentLinks((current) => [record, ...current.filter((item) => item.shortUrl !== record.shortUrl)].slice(0, maxRecentLinks));
     setActiveResult(record);
   };
 
   const refreshRecord = async (shortUrl) => {
-    const [status, clickCount] = await Promise.all([
-      getUrlStatus(shortUrl),
-      getClickCount(shortUrl).catch(() => 0),
-    ]);
+    const status = await getUrlStatus(shortUrl);
 
     return {
       shortUrl: status.shortUrl,
       longUrl: status.longUrl,
       createdAt: status.createdAt,
-      clickCount: typeof clickCount === 'number' ? clickCount : status.clickCount ?? 0,
+      clickCount: status.clickCount ?? 0,
       custom: Boolean(status.shortUrl && status.shortUrl === shortUrl),
     };
   };
@@ -169,8 +326,18 @@ export function App() {
         setStatusLookup(null);
       }
       toast.success('Link deleted.');
-    } catch {
-      toast.error('Unable to delete the link.');
+    } catch (error) {
+      console.error('Unable to delete the link.', error);
+    }
+  };
+
+  const handleOpen = (record) => {
+    const targetUrl = buildShortLink(record.shortUrl);
+
+    const newWindow = window.open(targetUrl, '_blank');
+
+    if (!newWindow) {
+        toast.error('Popup blocked. Please allow popups for this site.');
     }
   };
 
@@ -290,16 +457,16 @@ export function App() {
                 </div>
                 <span className="chip">{activeResult.clickCount} clicks</span>
               </div>
-              <p>{activeResult.longUrl}</p>
+              <p className="url-text" title={activeResult.longUrl}>{activeResult.longUrl}</p>
               <div className="result-actions">
                 <button className="button button-ghost" type="button" onClick={() => handleCopy(activeResult.shortUrl)}>
                   <Copy size={16} />
                   Copy
                 </button>
-                <a className="button button-ghost" href={buildShortLink(activeResult.shortUrl)} target="_blank" rel="noreferrer">
+                <button className="button button-ghost" type="button" onClick={() => handleOpen(activeResult)}>
                   <Link2 size={16} />
                   Open
-                </a>
+                </button>
               </div>
             </div>
           ) : null}
@@ -338,7 +505,7 @@ export function App() {
               </div>
               <div className="status-row">
                 <span>Original URL</span>
-                <strong>{currentStatus.longUrl}</strong>
+                <strong className="url-text" title={currentStatus.longUrl}>{currentStatus.longUrl}</strong>
               </div>
               <div className="status-row">
                 <span>Clicks</span>
@@ -382,9 +549,9 @@ export function App() {
           ) : (
             recentLinks.map((item) => (
               <article className="recent-item" key={item.shortUrl}>
-                <div>
-                  <strong>{item.shortUrl}</strong>
-                  <p>{item.longUrl}</p>
+                <div className="url-stack">
+                  <strong className="url-text" title={item.shortUrl}>{item.shortUrl}</strong>
+                  <p className="url-text" title={item.longUrl}>{item.longUrl}</p>
                 </div>
                 <div className="result-actions">
                   <button className="button button-ghost" type="button" onClick={() => handleCopy(item.shortUrl)}>

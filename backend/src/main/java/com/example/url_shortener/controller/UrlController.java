@@ -33,7 +33,20 @@ public class UrlController {
     @GetMapping("/{shortUrl}")
     public ResponseEntity<Void> getOriginalUrl(@PathVariable String shortUrl , HttpServletRequest request) {
 
-        String ip = request.getRemoteUser();
+        String ip = request.getRemoteAddr();
+        rateLimitService.validateRequest(ip + ":" + shortUrl);
+
+        String originalUrl = urlsService.getOriginalUrl(shortUrl);
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(originalUrl))
+                .build();
+    }
+
+    @GetMapping("/{shortUrl}/open")
+    public ResponseEntity<Void> openShortUrl(@PathVariable String shortUrl , HttpServletRequest request) {
+
+        String ip = request.getRemoteAddr();
         rateLimitService.validateRequest(ip + ":" + shortUrl);
 
         String originalUrl = urlsService.getOriginalUrl(shortUrl);

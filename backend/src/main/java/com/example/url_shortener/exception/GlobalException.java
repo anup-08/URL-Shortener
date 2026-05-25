@@ -49,4 +49,12 @@ public class GlobalException {
                 request.getDescription(false).replace("uri=", ""));
         return new ResponseEntity<>(response,HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(value = TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyRequests(TooManyRequestsException ex , WebRequest request){
+        ErrorResponse response = new ErrorResponse(HttpStatus.TOO_MANY_REQUESTS.value(),
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", ""));
+        return new ResponseEntity<>(response,HttpStatus.TOO_MANY_REQUESTS);
+    }
 }

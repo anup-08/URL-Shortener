@@ -17,13 +17,8 @@ export async function createCustomUrl(longUrl, shortUrl) {
   return response.data;
 }
 
-export async function getUrlStatus(shortUrl) {
-  const response = await apiClient.get(`/url/${encodeURIComponent(shortUrl)}/status`);
-  return response.data;
-}
-
-export async function getClickCount(shortUrl) {
-  const response = await apiClient.get(`/url/${encodeURIComponent(shortUrl)}/clicks`);
+export async function getUrlStatus(shortUrl, options = {}) {
+  const response = await apiClient.get(`/url/${encodeURIComponent(shortUrl)}/status`, options);
   return response.data;
 }
 

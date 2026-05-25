@@ -48,7 +48,9 @@ function extractErrorMessage(error) {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    toast.error(extractErrorMessage(error));
+    if (!error?.config?.skipGlobalToast) {
+      toast.error(extractErrorMessage(error));
+    }
     return Promise.reject(error);
   },
 );

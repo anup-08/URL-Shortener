@@ -21,6 +21,7 @@ public class Url {
     private long id;
     @Column(unique = true)
     private String shortUrl;
+    @Column(columnDefinition = "TEXT")
     private String longUrl;
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { getApiErrorMessage } from './api/client';
 import { App } from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles.css';
@@ -14,7 +15,7 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  toast.error('A request failed outside the normal error flow.');
+  toast.error(getApiErrorMessage(event.reason));
   console.error('Unhandled rejection:', event.reason);
 });
 
